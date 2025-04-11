@@ -38,7 +38,17 @@ In infrastructure code, observability is your best friend. No matter how much yo
 
 ### Logic
 
+Now that we have discussed how to load data from different sources, it's time to make a decision based on that information. This is where logic code comes into play. In some contexts this can be referred to as business logic, but to keep it applicable in more scenarios, I'm going with the more generic term: logic.
 
+Logic code is, prefferably, a pure function. It takes the data it needs as input and outputs the decisions it has made. Most logic code is going to be quite easy to read and understand. The most important rule of logic code, is that it cannot access external systems.
+
+The decisions are input for the infrastructe: save data to a database or file system, notify external systems and post messages to a message bus. I make an exception for logging as this is sometimes closely coupled with logic flow. Even here, we could return the log events as part of the logic code output and have the infrastructure take care of writing to the logstream. Personally, I find that adding logs into the logic code is no less distracting than returning the log events, so I keep my logging code inside the logic code. I have noticed that I write less logs as I log the output of the logic code, which tells me a lot in most cases.
+
+When I need external libraries in my logic code, I inject them together with the data into the function. If the library is simple, I reference it directly. If it is more complex, I hide it behind an interface that narrows the surface of the library to only the parts that I need. For example: if I need to add a watermark to an image, I can use a 3rd party library to help me. Most image processing libraries are quite extensive, so I create a class `Watermark` with a single function `Add`. I can then either inject it if construction is complex or I can instantiate it in my logic code if it's simple enough. The chance that I'll need to substitute the class with another implementation is small, so I don't bother with an interface and sometimes even dependency injection.
+
+The first comment you might have here is: but what if we need to reuse it? Then there are two options: either it does exactly what it needs to in both cases and I can reuse the component without touching it... or it doesn't and the other place needs its own implementation. It is easier to maintain a few similar looking pieces of code than it is to have one class that is shared over my codebase that caters to similar functionality but not quite. The one class will become hard to understand, complex and bloated with all the different pieces of logic it needs in each different case. When one place needs a change, you need to take all the other usecases into consideration before you can make the change. That is why I like to keep this kind of logic spread out throughout the codebase.
+
+Mind you, if exactly the same code pops up all over the place, then that is a good moment to reflect and refactor that into a shared class. The difference is that you see duplication and get rid of it, instead of anticipating what will be reused and creating complexity.
 
 
 
