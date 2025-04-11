@@ -50,12 +50,13 @@ The first comment you might have here is: but what if we need to reuse it? Then 
 
 Mind you, if exactly the same code pops up all over the place, then that is a good moment to reflect and refactor that into a shared class. The difference is that you see duplication and get rid of it, instead of anticipating what will be reused and creating complexity.
 
+### Controller
 
+Great, now we have code that can load and save the data and there is code to take decisions and make computations. Unfortunately, both cannot know of eachother. That is where the controller comes into play. The controller will pass information from one to another and make sure that the correct data is passed to the correct funtionality.
 
+The controller will instruct the infrastructure code to fetch data from the database, pass it on to the logic code and then tell the database class to persist the changes and tell the message bus to send the messages that the logic code produced.
 
-
-The idea behind this separation is that the infrastructure code will handle all side effects such as saving data to a database or file, sending requests over the network, publish events to a bus, get the date and time, etc. The logic code on the other hand should be a pure function that makes a decision based on the information passed to it and then communicates the result. The controller's job is to flow information and data from one to the other. Lets look at the three components in detail.
-
+This code is fairly straightforward and can even be automated away.
 
 
 
