@@ -43,7 +43,7 @@ app.MapPost(
                     await db.SaveChangesAsync();
                     return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
                 case DogExists exists:
-                    return Results.Redirect($"/dog/{exists.Dog.Id}");
+                    return Results.Redirect($"/dog/{exists.Id}");
             }
 
             return Results.InternalServerError("Could not determine what to do with the dog");
@@ -63,7 +63,7 @@ public class Dog
     internal static DogCreation CreateDog(CreateDog dog, Dog? existing)
     {
         if (existing is not null)
-            return new DogExists(existing);
+            return new DogExists(existing.Id);
 
         return new DogCreated(
             new Dog
@@ -76,4 +76,4 @@ public class Dog
 
 abstract record DogCreation;
 record DogCreated(Dog Dog) : DogCreation;
-record DogExists(Dog Dog) : DogCreation;
+record DogExists(int Id) : DogCreation;
