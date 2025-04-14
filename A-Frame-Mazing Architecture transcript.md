@@ -8,7 +8,7 @@
 
 A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic; between the two is a controller who orchestrates the flow of data and information. Everything in your code should resprect that separation.
 
-![A-Frame Architecture triangle]("files://A-Frame Architecture triangle.png")
+![A-Frame Architecture triangle.png](A-Frame%20triangle.png "A-Frame Architecture triangle")
 
 The idea behind this separation is that each component is easy to reason about, does not influence the other and can thus be easily changed, tested and replaced. Lets look at each in more detail.
 
@@ -57,6 +57,91 @@ Great, now we have code that can load and save the data and there is code to tak
 The controller will instruct the infrastructure code to fetch data from the database, pass it on to the logic code and then tell the database class to persist the changes and tell the message bus to send the messages that the logic code produced.
 
 This code is fairly straightforward and can even be automated away.
+
+## The project
+
+Before I show the code and how it's structured, let me quickly explain the premise of the app. This app will help dog walkers log walks with their dogs and automatically identify who they encountered on their way. Given the other party also entered their route. So I will build a system to keep track of dogs and their owners, the walks they have taken and who they encountered on their walk.
+
+Seeing as this is a demo app, I will use a very simple coordinate system instead of GPS data. I will also assume that all walks happen at the same time. This will simplify the code a bit and keep the focus on the techniques I want to demonstrate instead of going into unnecessary details of the _"business domain"_.
+
+I'm also skipping some unnecessary in-depth explanations. I'm going to assume that you are familiar with setting up Entity Framework or how to correctly use `HttpClient` because you are reading an article about advanced architecture. There are numerous articles that explain those topics in more depth. This article is to highlight the A-Frame Architecture.
+
+## A simple scenario
+
+Let's take a look at how the code is structured. To start out, I will use a minimal API to demonstrate the basic idea of A-Frame Architecture. In examples to come, I'm going to use a framework to connect infrastructure to logic.
+
+The first endpoint that I will create, will create a dog in the database. Let's first take a look at the infrastructure code, this will feel most recognizable.
+
+```csharp
+record CreateDog(string Name, DateOnly Birthday);
+app.MapPost(
+        "/dog",
+        async ([FromBody] CreateDog dog, [FromServices] DogWalkingContext db) =>
+        {
+            var existingDog = await db.Dogs.FirstOrDefaultAsync(d => d.Name == dog.Name && d.Birthday == dog.Birthday);
+
+            var dogCreation = Dog.CreateDog(dog, existingDog);
+
+            switch (dogCreation)
+            {
+                case DogCreated created:
+                    db.Dogs.Add(created.Dog);
+                    await db.SaveChangesAsync();
+                    return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
+                case DogExists exists:
+                    return Results.Redirect($"/dog/{exists.Id}");
+            }
+
+            return Results.InternalServerError("Could not determine what to do with the dog");
+        })
+    .WithName("CreateDog");
+```
+
+The minimal API takes in a structure that was in the body of the request and a connection to the database. It looks the possible already existing dog up in the database. It then lets the `Dog` class take care of creation workflow. I'll get to that in a second. Have some patience, good things come to those who wait.
+
+After the dog creation logic has run, I have to process that result. In the case that the dog is new, it needs to be saved to the database and return the created record. When the dog already exists, I redirect to the place where the consumer can find more information about the dog. Just in case, I return an error should something go wrong.
+
+Now that we have the infrastructure in place, let's look at the logic to create a dog in our system.
+
+```csharp
+abstract record DogCreation;
+record DogCreated(Dog Dog) : DogCreation;
+record DogExists(int Id) : DogCreation;
+
+public class Dog
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public DateOnly Birthday { get; set; }
+
+    internal static DogCreation CreateDog(CreateDog dog, Dog? existing)
+    {
+        if (existing is not null)
+            return new DogExists(existing.Id);
+
+        return new DogCreated(
+            new Dog
+            {
+                Name = dog.Name,
+                Birthday = dog.Birthday
+            });
+    }
+}
+```
+
+Logic is in a lot of cases straightforward when infrastructure concerns are remove. I did create a simple hierarchy to return all the possible outcomes back to the infrastructure layer. I like this little pattern, it reminds me of [discriminated unions/sum type](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions). They come from functional programming and [C# might get them too](https://github.com/dotnet/csharplang/blob/main/proposals/TypeUnions.md). This is the closest I can get to that for the moment, I like this because it describes all the possible outcomes that can come out of the `CreateDog` function. This is also what the infrastructure code uses to determine what needs to be done.
+
+What I also could have done, was to create a single property `Dog` on the base class and passed the created or existing dog reference back to the infrastructure. I like to return only what is needed back to my infrastructure. The logic code does not need to know whether a created or redirect needs to be sent over the wire. I, as the maintainer of the system, do not want to return too much so I can easily process the result. The last reason I do this, is to highlight that each case has its own needs and should not contain any more than needed. The whole purpose of this architecture is to simplify code.
+
+Automated tests can very easily verify whether the logic takes the right decisions. There is no infrastructure code that gets in the way. The "messy" infrastructure code with all of its side effects can be better tested with integration tests. That way, all infrastructure code gets verified in a few scenarios, while all the special logic cases get their own (much faster) unit tests.
+
+For a simple situation like this, this can feel overkill. The point here is to showcase how separation between infrastructure and logic can make code a lot more understandable. Even without knowing what `CreateDog` function did, the returned values describe perfectly what you can expect and how the infrastructure should respond to it.
+
+The readers who have been paying attention, noticed that the controller and infrastructure logic have interwoven in this example. Congratulations to you who spotted it. In this case, I don't mind as this is simple enough as a first example. A lot of infrastructure code is hidden behind the Entity Framework abstraction, so there is the case to be made that it's still separated well enough.
+
+Now that the basics are highlighted, let's take a look at how I can make my life a lot easier with a framework that already does a lot of the heavy lifting.
+
+
 
 
 
