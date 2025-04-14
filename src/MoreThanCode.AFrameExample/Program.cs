@@ -36,19 +36,17 @@ app.MapPost(
 
             var dogCreation = Dog.CreateDog(dog, existingDog);
 
-            var id = 0;
             switch (dogCreation)
             {
                 case DogCreated created:
                     db.Dogs.Add(created.Dog);
                     await db.SaveChangesAsync();
-                    id = created.Dog.Id;
-                    break;
+                    return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
                 case DogExists exists:
-                    id = exists.Dog.Id;
-                    break;
+                    return Results.Redirect($"/dog/{exists.Dog.Id}");
             }
-            return Results.Redirect($"/dog/{id}");
+
+            return Results.InternalServerError("Could not determine what to do with the dog");
         })
     .WithName("CreateDog");
 
