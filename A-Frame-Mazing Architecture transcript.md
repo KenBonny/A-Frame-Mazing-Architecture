@@ -139,6 +139,19 @@ For a simple situation like this, this can feel overkill. The point here is to s
 
 The readers who have been paying attention, noticed that the controller and infrastructure logic have interwoven in this example. Congratulations to you who spotted it. In this case, I don't mind as this is simple enough as a first example. A lot of infrastructure code is hidden behind the Entity Framework abstraction, so there is the case to be made that it's still separated well enough.
 
+## An even simpler scenario
+
+The processing was easy enough to understand. I returned a reference to an endpoint that loads the details of a dog. How does that look in our A-Frame Architecture. Wel, I wouldn't use A-Frame Architecture for this. Most queries are so straightforward, that I don't want to bother with abstractions or indirection. I would just use a very, and I mean very, simple approach.
+
+```csharp
+app.MapGet(
+        "/dog/{dogId}",
+        async (int dogId, [FromServices] DogWalkingContext db) => Results.Json(await db.Dogs.FindAsync(dogId)))
+    .WithName("GetDog");
+```
+
+Even if queries get more complicated, most don't reach the level of processing code. I place these in a separate file with a single function. There is the occasional exception that breaks this rule, but for those cases I'd look for a bespoke approach to the problem at hand instead of a one-size-fits-all approach that I see in other code bases.
+
 Now that the basics are highlighted, let's take a look at how I can make my life a lot easier with a framework that already does a lot of the heavy lifting.
 
 
