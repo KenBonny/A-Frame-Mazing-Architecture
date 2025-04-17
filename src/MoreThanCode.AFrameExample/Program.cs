@@ -82,6 +82,7 @@ public class Dog
     public int Id { get; set; }
     public string Name { get; set; }
     public DateOnly Birthday { get; set; }
+    public ICollection<WalkWithDogs> Walks { get; set; }
 
     internal static DogCreation CreateDog(CreateDog dog, Dog? existing)
     {
@@ -97,6 +98,13 @@ public class Dog
     }
 }
 
-abstract record DogCreation;
-record DogCreated(Dog Dog) : DogCreation;
-record DogExists(int Id) : DogCreation;
+internal record DogResponse(int Id, string Name, DateOnly Birthday)
+{
+    public DogResponse(Dog dog) : this(dog.Id, dog.Name, dog.Birthday) { }
+};
+
+internal abstract record DogCreation;
+
+internal record DogCreated(Dog Dog) : DogCreation;
+
+internal record DogExists(int Id) : DogCreation;
