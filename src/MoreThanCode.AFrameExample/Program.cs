@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoreThanCode.AFrameExample.Database;
 using Scalar.AspNetCore;
+using Wolverine;
+using Wolverine.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +12,15 @@ builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnC
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi().AddSqlServer<DogWalkingContext>(builder.Configuration.GetConnectionString("DogWalking"));
+builder.Services.AddOpenApi()
+    .AddSqlServer<DogWalkingContext>(builder.Configuration.GetConnectionString("DogWalking"))
+    .AddWolverineHttp();
+
+builder.UseWolverine(options =>
+{
+    options.Policies.AutoApplyTransactions();
+    options.Policies.UseDurableLocalQueues();
+});
 
 var app = builder.Build();
 
@@ -22,6 +32,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapWolverineEndpoints();
 
 app.MapGet(
         "/dog/{dogId}",
