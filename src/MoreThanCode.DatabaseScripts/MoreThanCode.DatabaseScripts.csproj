@@ -8,11 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="dbup" Version="5.0.41" />
+        <PackageReference Include="dbup" Version="5.0.41"/>
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="scripts/**/*.sql" />
+        <EmbeddedResource Include="scripts/**/*.sql"/>
     </ItemGroup>
 
 </Project>
