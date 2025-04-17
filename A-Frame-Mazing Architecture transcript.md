@@ -154,6 +154,12 @@ Even if queries get more complicated, most don't reach the level of processing c
 
 Now that the basics are highlighted, let's take a look at how I can make my life a lot easier with a framework that already does a lot of the heavy lifting.
 
+## Wolverine
+
+[Wolverine](https://wolverine.netlify.app) is focused on messaging but goes beyond what other messaging frameworks offer. You can start in-memory and then integrate a bus (RabbitMQ, Azure Service Bus, Amazon SQS,...) when you need to distribute computing. Every step can make use of quality of life features such as durable messaging (in- and outbox patterns), retries, timeouts, error handling and everything else Wolverine has to offer. It doesn't stop there as HTTP requests can be handled as messages too. After all, any HTTP request is just a message that comes in through the web instead of through a bus.
+
+Integration with existing projects can be done gradually, as Wolverine can be installed alongside other messaging and API frameworks such as MassTransit, NServiceBus, minimal API's, ASP.NET or Blazor. So you can mix and match as you like or gradually migrate from one to another.
+
 
 
 
