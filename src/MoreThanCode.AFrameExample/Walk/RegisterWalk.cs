@@ -2,8 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoreThanCode.AFrameExample.Database;
+using MoreThanCode.AFrameExample.Shared;
+using Wolverine;
 using Wolverine.Http;
-using Wolverine.Persistence;
 
 namespace MoreThanCode.AFrameExample.Walk;
 
@@ -46,8 +47,9 @@ public class RegisterWalkHandler
                 .ToList()
         };
 
-        var result = new WalkResponse(walk.Id, dogsOnWalk.Select(d => new DogResponse(d)).ToArray(), request.Path);
-        return (Results.Created($"/walk/{walk.Id}", result), Storage.Insert(walk));
+        var response = new WalkResponse(walk.Id, dogsOnWalk.Select(d => new DogResponse(d)).ToArray(), request.Path);
+        return (LazyCreationResponse.For(() => $"/walk/{walk.Id}", response),
+            new EntityFrameworkInsert<WalkWithDogs>(walk));
     }
 }
 
@@ -77,7 +79,7 @@ public class WalkWithDogs
     public required ICollection<CoordinateEntity> Path { get; init; }
 }
 
-internal record WalkResponse(int Id, DogResponse[] Dogs, Coordinate[] Path);
+public record WalkResponse(int Id, DogResponse[] Dogs, Coordinate[] Path);
 
 public record WalkedWithDogs
 {

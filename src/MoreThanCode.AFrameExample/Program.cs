@@ -98,7 +98,7 @@ public class Dog
     }
 }
 
-internal record DogResponse(int Id, string Name, DateOnly Birthday)
+public record DogResponse(int Id, string Name, DateOnly Birthday)
 {
     public DogResponse(Dog dog) : this(dog.Id, dog.Name, dog.Birthday) { }
 };
