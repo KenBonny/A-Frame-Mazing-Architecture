@@ -33,7 +33,9 @@ public class RegisterWalkHandler
 
     [WolverinePost("/walk", Name = "Register Walk", OperationId = "Walk")]
     [Tags("MoreThanCode.AFrameExample")]
-    public (IResult, Insert<WalkWithDogs> insertWalk) Handle(RegisterWalk request, Dog[] dogsOnWalk)
+    public (LazyCreationResponse<WalkResponse> response, EntityFrameworkInsert<WalkWithDogs> insertWalk) Handle(
+        RegisterWalk request,
+        Dog[] dogsOnWalk)
     {
         var walk = new WalkWithDogs
         {
