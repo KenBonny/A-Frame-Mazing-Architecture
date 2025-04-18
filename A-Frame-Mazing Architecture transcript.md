@@ -6,11 +6,11 @@
 
 ## What is A-Frame Architecture?
 
-A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic; between the two is a controller who orchestrates the flow of data and information. Everything in your code should resprect that separation.
+A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic. Between the two is a controller who orchestrates the flow of data and information. Everything in your code should respect that separation.
 
 ![A-Frame Architecture triangle.png](A-Frame%20triangle.png "A-Frame Architecture triangle")
 
-The idea behind this separation is that each component is easy to reason about, does not influence the other and can thus be easily changed, tested and replaced. Lets look at each in more detail.
+The idea behind this separation is that each component is easy to reason about, does not influence the other and can thus be easily changed, tested and replaced. Let's look at each in more detail.
 
 ### Infrastructure
 
