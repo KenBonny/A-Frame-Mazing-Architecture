@@ -27,12 +27,15 @@ public record LazyCreationResponse : IHttpAware
         context.Response.StatusCode = 201;
     }
 
-    public static LazyCreationResponse<T> For<T>(Func<string> urlCreation, T value) => new(urlCreation, value);
+    public static LazyCreationResponse<T> For<T>(Func<string> urlCreation, Func<T> value) => new(urlCreation, value);
 }
 
 public record LazyCreationResponse<T> : LazyCreationResponse
 {
-    public LazyCreationResponse(Func<string> urlCreation, T value) : base(urlCreation) => Value = value;
+    private readonly Lazy<T> _lazyValue;
 
-    public T Value { get; }
+    public LazyCreationResponse(Func<string> urlCreation, Func<T> value) : base(urlCreation) =>
+        _lazyValue = new(value, LazyThreadSafetyMode.PublicationOnly);
+
+    public T Value => _lazyValue.Value;
 }

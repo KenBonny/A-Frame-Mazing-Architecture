@@ -49,7 +49,7 @@ public class RegisterWalkHandler
                 .ToList()
         };
 
-        var response = new WalkResponse(walk.Id, dogsOnWalk.Select(d => new DogResponse(d)).ToArray(), request.Path);
+        var response = () => new WalkResponse(walk.Id, dogsOnWalk.Select(d => new DogResponse(d)).ToArray(), request.Path);
         return (LazyCreationResponse.For(() => $"/walk/{walk.Id}", response),
             new EntityFrameworkInsert<WalkWithDogs>(walk));
     }
