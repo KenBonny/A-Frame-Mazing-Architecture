@@ -158,12 +158,60 @@ Now that the basics are highlighted, let's take a look at how I can make my life
 
 [Wolverine](https://wolverine.netlify.app) is focused on messaging but goes beyond what other messaging frameworks offer. You can start in-memory and then integrate a bus (RabbitMQ, Azure Service Bus, Amazon SQS,...) when you need to distribute computing. Every step can make use of quality of life features such as durable messaging (in- and outbox patterns), retries, timeouts, error handling and everything else Wolverine has to offer. It doesn't stop there as HTTP requests can be handled as messages too. After all, any HTTP request is just a message that comes in through the web instead of through a bus.
 
-Integration with existing projects can be done gradually, as Wolverine can be installed alongside other messaging and API frameworks such as MassTransit, NServiceBus, minimal API's, ASP.NET or Blazor. So you can mix and match as you like or gradually migrate from one to another.
+Integration with existing projects can be done gradually, as Wolverine can be installed alongside other messaging and API frameworks such as MassTransit, NServiceBus, minimal API's, ASP.NET or Blazor. So you can mix and match as you like or gradually migrate from one to another. For this purpose, I will leave the functionality of creating and retrieving a dog in the minimal API.
 
+I will use Wolverine to create a walk in the system. I want to tell the system with which dogs I walked from point to point. In a real system, I might use the geolocation from the phone to capture GPS points and add them when the app detects that a walk has been started. For this example, I'm going to use a simple coordinate system ([0,0], [0,1], [2, 1], etc.) to indicate the walk. I also want to verify that the dogs that go on this walk are known in the system.
 
+```csharp
+public class RegisterWalkHandler
+{
+    public Task<Dog[]> LoadAsync(RegisterWalk request, DogWalkingContext db) =>
+        db.Dogs.Where(d => request.DogsOnWalk.Contains(d.Name)).ToArrayAsync();
 
+    public ProblemDetails Validate(RegisterWalk request, Dog[] knownDogs)
+    {
+        var knownNames = knownDogs.Select(d => d.Name);
+        var unknownDogs = request.DogsOnWalk.Except(knownNames).ToArray();
+        return unknownDogs.Any()
+            ? new ProblemDetails
+            {
+                Status = (int)HttpStatusCode.BadRequest,
+                Title = "Unknown dog or dogs",
+                Detail = string.Join(", ", unknownDogs)
+            }
+            : WolverineContinue.NoProblems;
+    }
 
+    [WolverinePost("/walk", Name = "Register Walk", OperationId = "Walk")]
+    [Tags("MoreThanCode.AFrameExample")]
+    public (LazyCreationResponse<WalkResponse> response, EntityFrameworkInsert<WalkWithDogs> insertWalk) Handle(
+        RegisterWalk request,
+        Dog[] dogsOnWalk)
+    {
+        var walk = new WalkWithDogs
+        {
+            Dogs = dogsOnWalk,
+            Path = request.Path.Select((coord, index) => new CoordinateEntity
+                {
+                    X = coord.X,
+                    Y = coord.Y,
+                    SequenceOrder = index
+                })
+                .ToList()
+        };
 
+        var response = () => new WalkResponse(walk.Id, dogsOnWalk.Select(d => new DogResponse(d)).ToArray(), request.Path);
+        return (LazyCreationResponse.For(() => $"/walk/{walk.Id}", response),
+            new EntityFrameworkInsert<WalkWithDogs>(walk));
+    }
+}
+```
+
+Wolverine works by convention: first it loads data when it sees a `Load` or `LoadAsync` function, then it validates the request and finally it processes the `Handle` or `Consume` function. The `Load` function is equivalent to the infrastructure code and the `Handle` function is our logic code. The `Validate` function is a bonus to even further separate logic.
+
+This framework is smart enough to inject the required services into each function. It will get the `RegisterWalk` object from the HTTP body and the `DogWalkingContext` from DI services. What the infrastructure code returns can be injected into the `Validate` and `Handle` functions. If I need to return multiple pieces of data from the infrastructure, I can return a tuple. The tuple will be nicely broken down, and each item is injected separately in the following functions.
+
+What I find impressive, is that Wolverine can handle several things that are returned by the `Handle` function. In an HTTP handler, the first item in the returned tuple is what will be returned to the client. The next items will be either posted as messages on the configured bus or handled as a side effect. A side effect is anything related to infrastructure: saving contents to a file, updating rows in the database, making network calls,... It makes this distinction by looking for the presence of the `ISideEffect` interface.
 
 ## Sources
 
