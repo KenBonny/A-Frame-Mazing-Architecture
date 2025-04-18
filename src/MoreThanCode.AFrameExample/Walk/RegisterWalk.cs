@@ -82,9 +82,3 @@ public class WalkWithDogs
 }
 
 public record WalkResponse(int Id, DogResponse[] Dogs, Coordinate[] Path);
-
-public record WalkedWithDogs
-{
-    public required Dog[] Dogs { get; init; }
-    public required Coordinate[] Path { get; init; }
-}
