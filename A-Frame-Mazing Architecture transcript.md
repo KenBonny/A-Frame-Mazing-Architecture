@@ -213,6 +213,90 @@ This framework is smart enough to inject the required services into each functio
 
 What I find impressive, is that Wolverine can handle several things that are returned by the `Handle` function. In an HTTP handler, the first item in the returned tuple is what will be returned to the client. The next items will be either posted as messages on the configured bus or handled as a side effect. A side effect is anything related to infrastructure: saving contents to a file, updating rows in the database, making network calls,... It makes this distinction by looking for the presence of the `ISideEffect` interface.
 
+## A more advanced example
+
+This seems really nice for simple cases, yet what happens when there are more advanced usecases. The two big scenarios are:
+1. I need to perform an infrastructure call in the middle of logic code.
+2. I need to do different infrastructure calls based on the decisions taken by my logic code
+
+### 1. Infrastructure calls in the middle of logic code
+
+The easiest thing to do is to avoid these. Try to structure the logic code differently so that the infrastructure code can load all the data that is needed. When multiple objects need to be loaded, the `Load` method can return a tuple. Each item can be separately injected in the `Before`, `Validate` and `Handle` methods. So loading data from a database, an image from the web and the current date from the system can be returned.
+
+```csharp
+public async Task<(List<Dog> dogs, Image picture, DateTimeOffset now)> LoadAsync(/* dependencies go here */) 
+{
+    // infrastructure code goes here
+    return (dogsFromDatabase, pictureFromTheWeb, DateTimeOffset.Now);
+}
+
+public ProblemDetails Validate(List<Dog> dogs, DateTimeOffset now)
+{
+    return WolverineContinue.NoProblems;
+}
+
+public DogDto Handle(List<Dog> dogs, Image picture, DateTimeOffset now, IWatermarkService watermark)
+{
+    // logic code here
+}
+```
+
+Wolverine will inject the dog list, the picture and the date correctly into the `Validate` and `Handle` methods. It will even resolve the `IWatermarkService` from the dependency injection framework.
+
+That is all nice and dandy, but the usecase I have in mind cannot be preloaded. Lets say there is a heavy data load that I do not want to incur upfront. The picture is an 8k image and depending on some business logic, I might not need the picture. All that waiting for nothing. One way is to inject the infrastructure in the logic code and be done with it. Unfortunately, that means I'm back to square one with all the problems of mixing infra and logic. 
+
+Luckily, `Func<>` is an object and I can return that from the `Load` method. Thus delegating the execution to a later time. And Wolverine supports this out of the box. I get the benefits that the infrastructure code prepares the data, and I get an immutable way of testing my logic as I can replace the `Func<>` with a simple test stub in my automated tests.
+
+```csharp
+public async
+        Task<(WalkWithDogs? Walk, List<WalkWithDogs> OtherWalks, Func<byte[]> GetPictureAsync, DateTimeOffset Now)>
+        LoadAsync(int walkId, DogWalkingContext db)
+    {
+        var walk = await db.WalksWithDogs.Include(w => w.Dogs).FirstOrDefaultAsync(w => w.Id == walkId);
+        var dogsInWalk = walk?.Dogs.Select(d => d.Id).ToArray() ?? [];
+        var otherWalks = await db.WalksWithDogs.Include(w => w.Dogs)
+            .Where(w => !w.Dogs.Any(d => dogsInWalk.Contains(d.Id)))
+            .ToListAsync();
+        var getPicture = () =>
+        {
+            var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("MoreThanCode.AFrameExample.Yuna.jpg");
+            if (stream == null)
+                return [];
+            stream.Seek(0, SeekOrigin.Begin);
+            byte[] image = new byte[stream.Length];
+            stream.ReadExactly(image);
+            return image;
+        };
+        return (walk, otherWalks, getPicture, DateTimeOffset.Now);
+    }
+
+    [WolverineGet("/friends/{walkId}", OperationId = "Friends-On-Walk")]
+    [Tags("MoreThanCode.AFrameExample")]
+    public (IResult, OutgoingMessages) Handle(
+        WalkWithDogs walk,
+        List<WalkWithDogs> otherWalksAtSameTime,
+        Func<byte[]> getPicture,
+        DateTimeOffset now)
+    {
+        var outgoingMessages = new OutgoingMessages();
+
+        if (!otherWalksAtSameTime.Any())
+            return (Results.Empty, outgoingMessages);
+
+        var friends = otherWalksAtSameTime.SelectMany(w => w.Dogs).Except(walk.Dogs).Select(d => d.Name).ToArray();
+        if (friends.Length != 0)
+            outgoingMessages.Add(new MetFriends(friends));
+
+        FriendsResponse response = friends.Length == 0 ? new([], []) : new(friends, getPicture());
+
+        return (Results.Ok(response), outgoingMessages);
+    }
+```
+
+### 2. Different return signatures
+
+
+
 ## Sources
 
 [A-Frame Architecture with Wolverine](https://jeremydmiller.com/2023/07/19/a-frame-architecture-with-wolverine/)
