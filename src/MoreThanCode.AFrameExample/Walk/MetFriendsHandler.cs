@@ -46,7 +46,7 @@ public class MetFriendsHandler
 
     [WolverineGet("/friends/{walkId}", OperationId = "Friends-On-Walk")]
     [Tags("MoreThanCode.AFrameExample")]
-    public (IResult, OutgoingMessages) Handle(
+    public (IResult, OutgoingMessages, EntityFrameworkInsert<WalkWithDogs>?) Handle(
         WalkWithDogs walk,
         List<WalkWithDogs> otherWalksAtSameTime,
         Func<byte[]> getPicture,
@@ -55,7 +55,7 @@ public class MetFriendsHandler
         var outgoingMessages = new OutgoingMessages();
 
         if (!otherWalksAtSameTime.Any())
-            return (Results.Empty, outgoingMessages);
+            return (Results.Empty, outgoingMessages, null);
 
         var friends = otherWalksAtSameTime.SelectMany(w => w.Dogs).Except(walk.Dogs).Select(d => d.Name).ToArray();
         if (friends.Length != 0)
@@ -63,7 +63,7 @@ public class MetFriendsHandler
 
         FriendsResponse response = friends.Length == 0 ? new([], []) : new(friends, getPicture());
 
-        return (Results.Ok(response), outgoingMessages);
+        return (Results.Ok(response), outgoingMessages, new EntityFrameworkInsert<WalkWithDogs>(walk));
     }
 }
 
