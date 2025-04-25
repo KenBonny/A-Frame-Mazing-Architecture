@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoreThanCode.AFrameExample.Database;
+using MoreThanCode.AFrameExample.Shared;
 using Wolverine;
 using Wolverine.Http;
 

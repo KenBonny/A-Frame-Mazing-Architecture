@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoreThanCode.AFrameExample.Database;
 using MoreThanCode.AFrameExample.Shared;
-using Wolverine;
 using Wolverine.Http;
 
 namespace MoreThanCode.AFrameExample.Walk;
@@ -52,15 +51,6 @@ public class RegisterWalkHandler
         var response = () => new WalkResponse(walk.Id, dogsOnWalk.Select(d => new DogResponse(d)).ToArray(), request.Path);
         return (LazyCreationResponse.For(() => $"/walk/{walk.Id}", response),
             new EntityFrameworkInsert<WalkWithDogs>(walk));
-    }
-}
-
-public class EntityFrameworkInsert<T>(T entity) : ISideEffect where T : class
-{
-    public async Task ExecuteAsync(DogWalkingContext db)
-    {
-        db.Add(entity);
-        await db.SaveChangesAsync();
     }
 }
 
