@@ -75,26 +75,26 @@ The first endpoint that I will create, will create a dog in the database. Let's 
 ```csharp
 record CreateDog(string Name, DateOnly Birthday);
 app.MapPost(
-        "/dog",
-        async ([FromBody] CreateDog dog, [FromServices] DogWalkingContext db) =>
+    "/dog",
+    async ([FromBody] CreateDog dog, [FromServices] DogWalkingContext db) =>
+    {
+        var existingDog = await db.Dogs.FirstOrDefaultAsync(d => d.Name == dog.Name && d.Birthday == dog.Birthday);
+
+        var dogCreation = Dog.CreateDog(dog, existingDog);
+
+        switch (dogCreation)
         {
-            var existingDog = await db.Dogs.FirstOrDefaultAsync(d => d.Name == dog.Name && d.Birthday == dog.Birthday);
+            case DogCreated created:
+                db.Dogs.Add(created.Dog);
+                await db.SaveChangesAsync();
+                return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
+            case DogExists exists:
+                return Results.Redirect($"/dog/{exists.Id}");
+        }
 
-            var dogCreation = Dog.CreateDog(dog, existingDog);
-
-            switch (dogCreation)
-            {
-                case DogCreated created:
-                    db.Dogs.Add(created.Dog);
-                    await db.SaveChangesAsync();
-                    return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
-                case DogExists exists:
-                    return Results.Redirect($"/dog/{exists.Id}");
-            }
-
-            return Results.InternalServerError("Could not determine what to do with the dog");
-        })
-    .WithName("CreateDog");
+        return Results.InternalServerError("Could not determine what to do with the dog");
+    })
+.WithName("CreateDog");
 ```
 
 The minimal API takes in a structure that was in the body of the request and a connection to the database. It looks the possible already existing dog up in the database. It then lets the `Dog` class take care of creation workflow. I'll get to that in a second. Have some patience, good things come to those who wait.
