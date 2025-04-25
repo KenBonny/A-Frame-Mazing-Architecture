@@ -294,9 +294,39 @@ public IResult Handle(
 }
 ```
 
-### 2. Different return signatures
+### 3. More than one return instruction
 
+As a last step, let's look at the return of the function. I return only a single `IResult`. What if I want to save the walk back to the database, write the picture to disk or publish additional messages to the network? For these purposes, Wolverine has [cascading messages](https://wolverine.netlify.app/guide/handlers/cascading.html) and [`ISideEffect`](https://wolverine.netlify.app/guide/handlers/side-effects.html)s.
 
+Cascading messages can be returned in a variety of ways, but I prefer to work with the `OutgoingMessages` response type. This way I can add none, one or multiple messages based on the decisions of my logic. These messages will be published to the bus according to the settings that can be defined in Wolverine's setup. It's also possible to schedule or delay messages if needed. Those messages will benefit from all the resiliency that Wolverine has to offer: retries on failures, durable messaging with in- and outbox patterns and idempotent messages delivery.
+
+When there are infrastructure actions to be taken that are part of the scope of the handler, those can be implemented as side effects. Common side effects are saving to the database and writing to disk. For this, there is the `ISideEffect` marker interface that expects an `Execute` function to be available. This function is not present on the interface as the input can accept parameters resolved from dependency injection, just like the `Handle` function discussed earlier. When a side effect is optional, make it nullable and return `null`.
+
+It isn't possible to return a generic list of `ISideEffect`s. Wolverine needs to know the explicit type of the side effect implementation to resolve the injectable parameters correctly. Side effects are applied inside the scope of the transaction where the `Load` and `Handle` function are part of. After everything in the transaction succeeds, then the messages are published. This to prevent ghost messages notifying other parts of the system of an operation that may have failed. To prevent messages from disappearing because there is a problem with the bus, it is recommended to enable the outbox via [durable messaging](https://wolverine.netlify.app/guide/durability/). Storing the message in the database is part of the transaction which prevents those messages from being lost.
+
+````csharp
+public (IResult, OutgoingMessages, EntityFrameworkInsert<WalkWithDogs>?) Handle(
+    WalkWithDogs walk,
+    List<WalkWithDogs> otherWalksAtSameTime,
+    Func<byte[]> getPicture,
+    DateTimeOffset now)
+{
+    var outgoingMessages = new OutgoingMessages();
+
+    if (!otherWalksAtSameTime.Any())
+        return (Results.Empty, outgoingMessages, null);
+
+    var friends = otherWalksAtSameTime.SelectMany(w => w.Dogs).Except(walk.Dogs).Select(d => d.Name).ToArray();
+    if (friends.Length != 0)
+        outgoingMessages.Add(new MetFriends(friends));
+
+    FriendsResponse response = friends.Length == 0 ? new([], []) : new(friends, getPicture());
+
+    return (Results.Ok(response), outgoingMessages, new EntityFrameworkInsert<WalkWithDogs>(walk));
+}
+````
+
+A last remark: when you have side effects that can fail, use an [infrastructure handler]() that triggers on a business event. The most prevalent examples are network calls. A network call can fail for a multitude of reasons. I like to leverage built-in retry mechanisms, so I have tried and tested ways of handling these cases. 
 
 ## Sources
 
