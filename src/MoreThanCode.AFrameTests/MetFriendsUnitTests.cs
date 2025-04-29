@@ -53,7 +53,9 @@ public class MetFriendsUnitTests
                 SequenceOrder = 5
             }
         ]
-    };private readonly WalkWithDogs _otherWalk = new()
+    };
+
+    private readonly WalkWithDogs _otherWalk = new()
     {
         Dogs =
         [
