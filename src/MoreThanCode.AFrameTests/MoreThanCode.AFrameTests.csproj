@@ -16,4 +16,10 @@
       <ProjectReference Include="..\MoreThanCode.AFrameExample\MoreThanCode.AFrameExample.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="appsettings.Testing.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
