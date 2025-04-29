@@ -12,8 +12,9 @@ using Wolverine.SqlServer;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.json", false, true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", true, true);
+builder.Configuration.AddCommandLine(args)
+    .AddJsonFile("appsettings.json", false, true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", false, true);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -74,6 +75,8 @@ app.MapPost(
     .WithName("CreateDog");
 
 await app.RunOaktonCommands(args);
+
+public partial class Program {}
 
 internal record CreateDog(string Name, DateOnly Birthday);
 
