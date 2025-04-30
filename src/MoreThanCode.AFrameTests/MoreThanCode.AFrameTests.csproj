@@ -9,17 +9,13 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.4" />
+        <PackageReference Include="Testcontainers.MsSql" Version="4.4.0" />
         <PackageReference Include="TUnit" Version="0.19.84"/>
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\MoreThanCode.AFrameExample\MoreThanCode.AFrameExample.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <None Update="appsettings.Testing.json">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
+      <ProjectReference Include="..\MoreThanCode.DatabaseScripts\MoreThanCode.DatabaseScripts.csproj" />
     </ItemGroup>
 
     <ItemGroup>
