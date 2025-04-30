@@ -3,6 +3,21 @@
 ## Table of Content
 
 1. What is A-Frame Architecture?
+    1. Infrastructure
+    2. Logic
+    3. Controller
+2. The project
+3. A simple scenario
+4. An even simpler scenario
+5. Wolverine
+6. A more advanced example
+   1. Multiple pieces of infrastructure data
+   2. Infrastructure calls in the middle of logic code
+   3. Complex return instructions
+7. Testing
+   1. Unit tests
+   2. Integration tests
+8. Sources
 
 ## What is A-Frame Architecture?
 
@@ -294,7 +309,7 @@ public IResult Handle(
 }
 ```
 
-### 3. More than one return instruction
+### 3. Complex return instructions
 
 As a last step, let's look at the return of the function. I return only a single `IResult`. What if I want to save the walk back to the database, write the picture to disk or publish additional messages to the network? For these purposes, Wolverine has [cascading messages](https://wolverine.netlify.app/guide/handlers/cascading.html) and [`ISideEffect`](https://wolverine.netlify.app/guide/handlers/side-effects.html)s.
 
