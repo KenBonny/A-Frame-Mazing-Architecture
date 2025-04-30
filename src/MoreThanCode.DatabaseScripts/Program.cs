@@ -3,40 +3,48 @@
 using System.Reflection;
 using DbUp;
 
-try
+namespace MoreThanCode.DatabaseScripts;
+
+public class Program()
 {
-    var connectionString = args.FirstOrDefault() ?? throw new Exception("No connectionstring provided");
-
-    var upgrader = DeployChanges.To.SqlDatabase(connectionString)
-        .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
-        .LogToConsole()
-        .Build();
-
-    var result = upgrader.PerformUpgrade();
-
-    if (!result.Successful)
+    public static int Main(string[] args)
     {
-        WriteError(result.Error);
-        return -1;
-    }
+        try
+        {
+            var connectionString = args.FirstOrDefault() ?? throw new Exception("No connectionstring provided");
 
-    Console.ForegroundColor = ConsoleColor.Green;
-    Console.WriteLine("Success!");
-    Console.ResetColor();
-}
-catch (Exception ex)
-{
-    WriteError(ex);
-}
+            var upgrader = DeployChanges.To.SqlDatabase(connectionString)
+                .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
+                .LogToConsole()
+                .Build();
 
-return 0;
+            var result = upgrader.PerformUpgrade();
 
-void WriteError(Exception error)
-{
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine(error);
-    Console.ResetColor();
+            if (!result.Successful)
+            {
+                WriteError(result.Error);
+                return -1;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Success!");
+            Console.ResetColor();
+        }
+        catch (Exception ex)
+        {
+            WriteError(ex);
+        }
+
+        return 0;
+
+        void WriteError(Exception error)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine(error);
+            Console.ResetColor();
 #if DEBUG
-    Console.ReadLine();
+            Console.ReadLine();
 #endif
+        }
+    }
 }

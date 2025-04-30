@@ -10,73 +10,79 @@ using Wolverine.EntityFrameworkCore;
 using Wolverine.Http;
 using Wolverine.SqlServer;
 
-var builder = WebApplication.CreateBuilder(args);
+namespace MoreThanCode.AFrameExample;
 
-builder.Configuration.AddCommandLine(args)
-    .AddJsonFile("appsettings.json", false, true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", false, true);
-
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-const string dogwalking = "DogWalking";
-var connectionString = builder.Configuration.GetConnectionString(dogwalking) ??
-                       throw new NullReferenceException($"ConnectionString {dogwalking} should exists");
-builder.Services.AddOpenApi()
-    .AddSqlServer<DogWalkingContext>(connectionString)
-    .AddWolverineHttp();
-
-builder.UseWolverine(options =>
+public class Program
 {
-    options.UseEntityFrameworkCoreTransactions();
-    options.PersistMessagesWithSqlServer(connectionString, "wolverine");
-    options.UseSystemTextJsonForSerialization(serializerOptions => serializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
-    options.Policies.AutoApplyTransactions();
-    options.Policies.UseDurableLocalQueues();
-    options.Policies.ConfigureConventionalLocalRouting();
-});
+    public static async Task Main(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+        builder.Configuration.AddCommandLine(args)
+            .AddJsonFile("appsettings.json", false, true)
+            .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", false, true);
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
-}
+        // Add services to the container.
+        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+        const string dogwalking = "DogWalking";
+        var connectionString = builder.Configuration.GetConnectionString(dogwalking) ??
+                               throw new NullReferenceException($"ConnectionString {dogwalking} should exists");
+        builder.Services.AddOpenApi().AddSqlServer<DogWalkingContext>(connectionString).AddWolverineHttp();
 
-app.UseHttpsRedirection();
-app.MapWolverineEndpoints();
-
-app.MapGet(
-        "/dog/{dogId}",
-        async (int dogId, [FromServices] DogWalkingContext db) => Results.Json(await db.Dogs.FindAsync(dogId)))
-    .WithName("GetDog");
-
-app.MapPost(
-        "/dog",
-        async ([FromBody] CreateDog dog, [FromServices] DogWalkingContext db) =>
+        builder.UseWolverine(options =>
         {
-            var existingDog = await db.Dogs.FirstOrDefaultAsync(d => d.Name == dog.Name && d.Birthday == dog.Birthday);
+            options.UseEntityFrameworkCoreTransactions();
+            options.PersistMessagesWithSqlServer(connectionString, "wolverine");
+            options.UseSystemTextJsonForSerialization(serializerOptions =>
+                serializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
+            options.Policies.AutoApplyTransactions();
+            options.Policies.UseDurableLocalQueues();
+            options.Policies.ConfigureConventionalLocalRouting();
+        });
 
-            var dogCreation = Dog.CreateDog(dog, existingDog);
+        var app = builder.Build();
 
-            switch (dogCreation)
-            {
-                case DogCreated created:
-                    db.Dogs.Add(created.Dog);
-                    await db.SaveChangesAsync();
-                    return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
-                case DogExists exists:
-                    return Results.Redirect($"/dog/{exists.Id}");
-            }
+        // Configure the HTTP request pipeline.
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapOpenApi();
+            app.MapScalarApiReference();
+        }
 
-            return Results.InternalServerError("Could not determine what to do with the dog");
-        })
-    .WithName("CreateDog");
+        app.UseHttpsRedirection();
+        app.MapWolverineEndpoints();
 
-await app.RunOaktonCommands(args);
+        app.MapGet(
+                "/dog/{dogId}",
+                async (int dogId, [FromServices] DogWalkingContext db) => Results.Json(await db.Dogs.FindAsync(dogId)))
+            .WithName("GetDog");
 
-public partial class Program {}
+        app.MapPost(
+                "/dog",
+                async ([FromBody] CreateDog dog, [FromServices] DogWalkingContext db) =>
+                {
+                    var existingDog =
+                        await db.Dogs.FirstOrDefaultAsync(d => d.Name == dog.Name && d.Birthday == dog.Birthday);
+
+                    var dogCreation = Dog.CreateDog(dog, existingDog);
+
+                    switch (dogCreation)
+                    {
+                        case DogCreated created:
+                            db.Dogs.Add(created.Dog);
+                            await db.SaveChangesAsync();
+                            return Results.Created($"/dog/{created.Dog.Id}", created.Dog);
+                        case DogExists exists:
+                            return Results.Redirect($"/dog/{exists.Id}");
+                    }
+
+                    return Results.InternalServerError("Could not determine what to do with the dog");
+                })
+            .WithName("CreateDog");
+
+        await app.RunOaktonCommands(args);
+    }
+}
 
 internal record CreateDog(string Name, DateOnly Birthday);
 

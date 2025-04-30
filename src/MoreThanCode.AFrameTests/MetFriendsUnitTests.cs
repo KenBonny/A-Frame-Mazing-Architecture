@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MoreThanCode.AFrameExample;
 using MoreThanCode.AFrameExample.Walk;
 using Wolverine;
 using Wolverine.Http;
