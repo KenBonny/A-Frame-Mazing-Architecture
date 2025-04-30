@@ -326,9 +326,108 @@ public (IResult, OutgoingMessages, EntityFrameworkInsert<WalkWithDogs>?) Handle(
 }
 ````
 
-A last remark: when you have side effects that can fail, use an [infrastructure handler]() that triggers on a business event. The most prevalent examples are network calls. A network call can fail for a multitude of reasons. I like to leverage built-in retry mechanisms, so I have tried and tested ways of handling these cases. 
+A last remark: when you have side effects that can fail, use an [infrastructure handler]() that triggers on a business event. The most prevalent examples are network calls. A network call can fail for a multitude of reasons. I like to leverage built-in [retry mechanisms](https://wolverine.netlify.app/guide/handlers/error-handling.html), so I have tried and tested ways of handling these cases. 
+
+## Testing
+
+No architecture is complete without an easy way to test the functionality. My recommended strategy is to use two types of tests: unit and integration.
+
+### Unit tests
+
+The logic code is the easiest to test with standard unit tests. These tests will test all paths through the logic. Since there is no infrastructure setup required, these tests are easy to read and fairly straightforward. I'll write a test for the most complicated example as that will cover most special cases that I could need.
+
+Instantiating the system under test is nothing more than creating a new instance of the class. Here we see the first testing benefit: a lack of injectables into the handler lets me create an instance very easily. In my actual test class I put this in a private readonly field that gets reused throughout my tests.
+
+All injections happen in the `Handle` function. Keep injected data simple and specific to the case under test. I create a default `_walk` that I pass to the function or that can serve as an [object mother](https://martinfowler.com/bliki/ObjectMother.html) that will be modified to the needs of the test. The `_otherWalk` is similar to the `_walk` object, but with another dog that crossed paths with ours. The `Func<byte[]>` is now an easy-to-stub method with a small closure to capture whether the function has been called. I can also easily change the date should I need to.
+
+The main reason I passed the date along is to showcase how everything that can vary, should be kept out of the logic code. Putting that `DateTimeOffset.Now` into my logic would make it a lot harder to test.
+
+After executing the logic, I don't need to worry about capturing decisions, checking that a filesystem write has been executed or messages placed on a bus as that is literally communicated back to me. All I need to do is check that the right decisions come out of the scenario at hand.
+
+```csharp
+[Test]
+public async Task When_other_dog_encountered_then_do_indicate_dog_encountered()
+{
+    var getPictureCalled = false;
+    var (result, outgoingMessages, entityFrameworkInsert) = new MetFriendsHandler().Handle(
+        _walk,
+        [_otherWalk],
+        () =>
+        {
+            getPictureCalled = true;
+            return [];
+        },
+        DateTimeOffset.Now);
+
+    await Assert.That(result).IsEquivalentTo(Results.Ok(new FriendsResponse(["Toby"], [])));
+    var friends = outgoingMessages.ShouldHaveMessageOfType<MetFriends>().Friends;
+    await Assert.That(friends).IsNotEmpty().And.Contains("Toby");
+    await Assert.That(entityFrameworkInsert).IsNotNull();
+    await Assert.That(getPictureCalled).IsTrue();
+}
+```
+
+As far as test setup goes, I have no clear winner for a test framework. [xUnit.NET](https://xunit.net), [NUnit](https://nunit.org) and the newcomer [TUnit](https://tunit.dev) are all viable frameworks to test with. Personally I like xUnit for their terminology with Fact and Theory, but the newcomer TUnit is quickly capturing my interest. I've used it here to encourage everybody to keep experimenting and learning.
+
+I have the similar thoughts on assertion and mocking libraries. There are no bad choices here. They are tools to get a job done, pick the one right for the job.
+
+### Integration tests
+
+Now that I've tackled the easy part, let's look at the complex part. Infrastructure code is not easy to test, no matter how you twist or turn it. I've tried mocking it out, I've tried using the Entity Framework in-memory database, I've tried sacrificing managers to the god [Maniae](https://en.wikipedia.org/wiki/Maniae). This is where integration tests come into play.
+
+To run the web server in-memory instead of a real webserver such as Kestrel or IIS, I'll either use the [WebApplicationFactory](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests) directly as this is fairly easy. This is what I did in my basic (and honestly, quite useless) integration test. In reality, I'll use a library such as [Alba](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests).
+
+[Don't try to simulate the database](https://learn.microsoft.com/en-us/ef/core/providers/in-memory/?tabs=dotnet-core-cli). I create a local test database, and I spin up a container or lightweight database in my CI/CD pipeline. [Test containers](https://testcontainers.com) can be quite convenient for those. I run my migration scripts, then I test against that database. This way, I ensure that my migration scripts work and that the statements that are executed on the database are correct as well. Double win. To reset a database to a known good point, I use [Respawn](https://github.com/jbogard/Respawn). I prefer resetting the database before each testrun. This ensures that the database before each test is empty, so I can add the state that I need. After a test fails, I have access to the data to debug efficiently.
+
+Write to the local file system when integration testing. In a CI/CD environment, my tests run in a container that gets disposed of afterwards, so I'm not afraid to try to do write operations to test if those work. I can even publish the test output as an artefact if I want to inspect it afterwards.
+
+When I'm working with external systems, I do mock/fake/stub those. The twist, I call each system with test data, and I record their responses. I prefer doing this with a test system, but I will use the real API if I have no other option. In the last case, I'll never do that unannounced. I'll get in touch with their team and coordinate a moment and specify which data I'll be sending across. In all cases I keep the data that I sent and the responses. Both good and bad responses are used in my integration tests, so my system is prepared for all possible scenarios.
+
+In practice, I'll try to mock/fake/stub the return of the `HttpClient`. [WireMock.NET](https://github.com/WireMock-Net/WireMock.Net) can come in quite handy in these scenarios. If I use libraries such as [Refit](https://reactiveui.github.io/refit/), [RestSharp](https://restsharp.dev) or [Flurl](https://flurl.dev), I'll use their built-in test support.
+
+```csharp
+[ClassDataSource<WebAppFactory>(Shared = SharedType.PerTestSession)]
+public class MetFriendsIntegrationTests(WebAppFactory webAppFactory)
+{
+    [Test]
+    public async Task Get_response_bad_request()
+    {
+        var client = webAppFactory.CreateClient();
+
+        using var response = await client.GetAsync("/friends/1");
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+    }
+}
+
+public class WebAppFactory : WebApplicationFactory<Program>, IAsyncInitializer
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        // let Oakton accept --environment variables
+        OaktonEnvironment.AutoStartHost = true;
+
+        // disable all external setup so the integration tests don't start sending out messages
+        builder.ConfigureTestServices(services => services.DisableAllExternalWolverineTransports());
+    }
+
+    public Task InitializeAsync()
+    {
+        // Grab a reference to the server
+        // This forces it to initialise.
+        // By doing it within this method, it's thread safe.
+        // And avoids multiple initialisations from different tests if parallelisation is switched on
+        _ = Server;
+        return Task.CompletedTask;
+    }
+}
+```
 
 ## Sources
 
 [A-Frame Architecture with Wolverine](https://jeremydmiller.com/2023/07/19/a-frame-architecture-with-wolverine/)
 [James Shore A-Frame Architecture](https://www.jamesshore.com/v2/projects/nullables/testing-without-mocks#a-frame-arch)
+[Wolverine Docs](https://wolverine.netlify.app/tutorials/)
+[Alba integration test framework](https://jasperfx.github.io/alba/)
+[Integration testing in dotnet](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
+[TUnit](https://tunit.dev)
