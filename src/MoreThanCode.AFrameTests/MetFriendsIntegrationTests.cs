@@ -8,15 +8,13 @@ using Wolverine;
 
 namespace MoreThanCode.AFrameTests;
 
-public class MetFriendsIntegrationTests
+[ClassDataSource<WebAppFactory>(Shared = SharedType.PerTestSession)]
+public class MetFriendsIntegrationTests(WebAppFactory webAppFactory)
 {
-    [ClassDataSource<WebAppFactory>(Shared = SharedType.PerTestSession)]
-    public required WebAppFactory WebAppFactory { get; init; }
-
     [Test]
     public async Task Get_response_bad_request()
     {
-        var client = WebAppFactory.CreateClient();
+        var client = webAppFactory.CreateClient();
 
         using var response = await client.GetAsync("/friends/1");
 
