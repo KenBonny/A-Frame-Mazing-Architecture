@@ -2,11 +2,11 @@
 
 ## Table of Content
 
-1. What is A-Frame Architecture?
+1. The project
+2. What is A-Frame Architecture?
     1. Infrastructure
     2. Logic
     3. Controller
-2. The project
 3. A simple scenario
 4. An even simpler scenario
 5. Wolverine
@@ -19,73 +19,73 @@
    2. Integration tests
 8. Sources
 
+## The project
+
+Before I explain the architecture, let me quickly explain the purpose of the app. This app will help dog walkers log walks with their dogs and automatically identify who they encountered on their stroll. I will build a system to keep track of dogs, their walks and who they met.
+
+Seeing as this is a demo app, I will use a basic coordinate system instead of GPS data. I'll ignore the time the walks happen. This will simplify the code a bit and keep the focus on the techniques instead of going into unnecessary details of the non-existent business domain.
+
+For brevity, I'll assume you are familiar with popular concepts such as setting up entity framework or how to correctly use `HttpClient`. There are numerous articles explaining those topics in more depth. I want to keep A-Frame architeture front and centre.
+
 ## What is A-Frame Architecture?
 
-A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic. Between the two is a controller who orchestrates the flow of data and information. Everything in your code should respect that separation.
+A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic. Between the two is a controller who orchestrates the flow of data. Everything in your code should respect that separation.
 
 ![A-Frame Architecture triangle.png](A-Frame%20triangle.png "A-Frame Architecture triangle")
 
-The idea behind this separation is that each component is easy to reason about, does not influence the other and can thus be easily changed, tested and replaced. Let's look at each in more detail.
+This leads to code components that are nicely separated, have a single responsibility and have no dependencies on other components. This makes each component easy to reason about, which in turn leads to code that can easily be tested, changed and replaced. Infrastructure components tend to be more general and promote reuse, while logic is more specific to each use case.
+
+For example, I can have several logic components that need to write an image to the file system. One will deal with profile pictures while another will handle uploaded photographs. Both will delegate the write operation to the same infrastructure component.
+
+Let's take a look at each in more detail.
 
 ### Infrastructure
 
-Infrastructure code (I can refer to this as infrastructure or infra for short throughout this document) interacts with external systems, state and functions with an unpredictable outcome. Examples of the kind of code:
+Infrastructure components (aka infrastructure) interact with external systems, state and functions with an unpredictable outcome. Examples are:
 - Database calls
-- Send requests over the network
-- Read or write to the file system
-- Environment variables
-- Get the date and time
-- Generate random numbers, ids or guids
+- Sending requests over the network
+- Reading or writing to the file system
+- Retrieving environment variables
+- Determining date and time
+- Generating random numbers, ids or guids
 
-This list is not exhaustive, but it gives you an idea what infrastructure code looks like. This code can be complicated and hard to test. I find it hard to test whether file access works without accessing the file system. These interactions are very hard to mock or replace, be it in automated tests or manually verifying behaviour. That is why I do not like to mix them in with logic code.
+These components can be harder to test without an actual system to talk to. They are also challenging to mock or replace, both in automated tests and test environments. Infrastructure can also behave in unpredictable ways: do I have the right permissions or credentials, is there enough space on a disk, can I make the call through the firewall, etc.
 
-That is why I like to wrap these systems in an abstraction that I can more easily control. Sometimes I create my own interfaces and implementations. For file system access I mostly always create an `IFileSystem` interface that have `Read` and `Write` methods, sometimes with deserialisation baked in. When there are good abstractions already available, I reuse those. [`IOptions`](https://learn.microsoft.com/en-us/dotnet/core/extensions/options) is very useful for accessing settings and [`TimeProvider`](https://learn.microsoft.com/en-us/dotnet/standard/datetime/timeprovider-overview) is a great way to abstract time management.
+That is why I like to wrap these systems in an abstraction that I can more easily control. Sometimes I create my own interfaces and implementations. For file system access I mostly always create an `IFileSystem` interface that have `Read` and `Write` methods, sometimes with (de)serialisation baked in. When there are good abstractions already available, I reuse those. [`IOptions`](https://learn.microsoft.com/en-us/dotnet/core/extensions/options) is invaluable for accessing settings and [`TimeProvider`](https://learn.microsoft.com/en-us/dotnet/standard/datetime/timeprovider-overview) is a great way to abstract time management.
 
-When it comes to database access, there is the [repository pattern](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/infrastructure-persistence-layer-design#the-repository-pattern). This is a good option when you access the database directly, for example when you use [ADO.NET](https://learn.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) or [Dapper](https://www.learndapper.com). I do not recommend using the repository pattern together with [entity framework](https://learn.microsoft.com/en-us/aspnet/entity-framework) for the simple reason that a `DbContext` already is a repository. This will lead to too much indirection and it leads to duplication of logic. A lot of repositories on top of entity framework start with bespoke methods such as `DogRepository.GetDog(int id)`, but I have seen many times that eventually methods such as `DogRepository.Get(Expression<Func<Dog>> where)` are added for _"flexibility"_. It's a lot easier to just pass in the `DbContext` and use entity framework features directly.
+When it comes to database access, there is the [repository pattern](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/infrastructure-persistence-layer-design#the-repository-pattern). This is a good option when you access the database directly with [ADO.NET](https://learn.microsoft.com/en-us/dotnet/framework/data/adonet/ado-net-overview) or [Dapper](https://www.learndapper.com). I do not recommend using the repository pattern together with [entity framework](https://learn.microsoft.com/en-us/aspnet/entity-framework) for the simple reason that a `DbContext` already is an abstraction over your database. I've seen this lead to a maze of indirection and duplication of logic. A repository with `Repository.Get(Expression<Func<Model>> where)` that has one implementation which just forwards the `where` to the `DbContext`, comes to mind.
 
-When another developer sees that, I get mostly 2 questions:
-1. What about reusing the query? In my experience, most queries within one system are quite unique. A lot cannot and should not be reused. In the few cases where there is reuse possible, don't do it. With duplication of the query, both places can evolve when changes are required without impacting the other locations a query is used. This prevents methods like `DogRepository.GetList(Breed breed, DateRange? bornBetween, int? ownerId)`. This will get a list of dogs by breed. There are optional parameters for a date range so you can specify when the dog was born and a paremeter to specify the owner. I've noticed that those optional parameters are used once each. This results in more complex code to make sure the optional parameters are applied only when supplied. Having an easy `DbContext.Where` in each case, would make life much more easy. For the cases that can be reused, I recommend extension methods. For example a method that filters by breed. This promotes composing different filters into a readable pipeline: `dbContext.IsBreed(Breed.JackRussel).Where(dog => dog.OwnerId == ownerId).ToListAsync()`.
-2. This makes testing really hard! No it does not. Instead of creating a mock and telling it to return a specific result, I either use a real database or I use the in-memory database provider. The real database should be set up in a testing pipeline so that it can run anywhere: your machine, the new dev's machine and the CI/CD pipeline. For simple scenarios where I only need to return some data, I use the [in-memory database provider](https://learn.microsoft.com/en-us/ef/core/providers/in-memory). I do not recommend this as an alternative, especially for complex queries. In simple scenarios this mostly does what you expect it to do.
+When I suggest removing the unnecessary interface, I'm asked these questions:
+1. What about reusing a query? In my experience, most queries are unique. Reused parts can be put into extension methods. Think filtering by a status enum or by a date range. What I'm trying to avoid is a single function with parameters for each case. Think `Search(StatusEnum? status, DateRange? bornBetween, int? idToFilterOn)` with `if`'s throughout the body to filter by each optional parameter. The implementation will get quite complex and confusing. Not to mention the dozens of tests to check that it works in every configuration. What about the UI that filters through all items and has a dozen filters? That should be a feature with its own endpoint and not a method on the generic repository.
+2. How do I test against the `DbContext`? Instead of using mocks/fakes/stubs, use a real database. This is what integration tests are used for as there is no substitute for a real database. You can use a Docker container for local test runs, start a database in your CI/CD pipeline or use [Test Containers](https://dotnet.testcontainers.org). See the [[Testing]] section for a detailed explanation.
 
-Keep infrastructure simple and straightforward. I prefer to have them as standalone components that do one thing and one thing well. For example: a `FileSystem.Write(string text)` method should serialise the text to bytes and then write it. It should not be changing the markdown inside the text to html first. Create a seperate formatter and chain those components into a pipeline.
+Keep infrastructure as simple and straightforward as possible. I prefer to have them as standalone components that do one thing and do it well. For example, a `FileSystem.Write(Image image)` should know how to serialise the image to a byte array. If there are multiple ways of serialising, that can be either a logic decision which should be passed to the component or the component should be able to determine which serialiser is needed.
 
 In infrastructure code, observability is your best friend. No matter how much you prepare and test, the real system will throw curveballs your way. That is why all infrastructure should be written with [OpenTelemetry](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/observability-with-otel) integration so you can track requests throughout systems.
 
 ### Logic
 
-Now that we have discussed how to load data from different sources, it's time to make a decision based on that information. This is where logic code comes into play. In some contexts this can be referred to as business logic, but to keep it applicable in more scenarios, I'm going with the more generic term: logic.
+Now that I've loaded data, it's time to make decisions based on that information. This is where logic components come into play. In some contexts this can be referred to as business logic, but to keep it applicable in more scenarios, I'm going with the more generic term: logic.
 
-Logic code is, prefferably, a pure function. It takes the data it needs as input and outputs the decisions it has made. Most logic code is going to be quite easy to read and understand. The most important rule of logic code, is that it cannot access external systems.
+A logic component is, preferably, a pure function. It takes the data it needs as input and returns the decisions it has made. Most logic components are going to be quite easy to read and understand. The most important rule of logic components is that it cannot access external systems. There are a lot of similarities between logic components and the domain model from domain driven design practices. 
 
-The decisions are input for the infrastructe: save data to a database or file system, notify external systems and post messages to a message bus. I make an exception for logging as this is sometimes closely coupled with logic flow. Even here, we could return the log events as part of the logic code output and have the infrastructure take care of writing to the logstream. Personally, I find that adding logs into the logic code is no less distracting than returning the log events, so I keep my logging code inside the logic code. I have noticed that I write less logs as I log the output of the logic code, which tells me a lot in most cases.
+The returned decisions are then passed back to infrastructure components: save data to a database, write it to a file system, notify external systems and post messages to a bus. I'll make an exception for logging as this can be coupled with the logic flow. I could return the log events and write them to a log stream in an infrastructure component. Going this far is overkill, in my opinion. I prefer writing the in- and output of logic components to OpenTelemetry. This keeps the logic free of logging statements and still gives me all the information necessary to debug later.
 
-When I need external libraries in my logic code, I inject them together with the data into the function. If the library is simple, I reference it directly. If it is more complex, I hide it behind an interface that narrows the surface of the library to only the parts that I need. For example: if I need to add a watermark to an image, I can use a 3rd party library to help me. Most image processing libraries are quite extensive, so I create a class `Watermark` with a single function `Add`. I can then either inject it if construction is complex or I can instantiate it in my logic code if it's simple enough. The chance that I'll need to substitute the class with another implementation is small, so I don't bother with an interface and sometimes even dependency injection.
+When I have need of external libraries in my logic code, I inject them after the data `Process(Model model, DateTime now, ImageProcessingLib lib)` or I instantiate it inside the method. If the library is complex, I hide that complexity in a class of my own. Say I need to add a watermark to an image, I'll wrap the extensive image processing library in a class called `Watermark`. Injection or instantiation then depends on how expensive it is to create that class. I don't mind tight coupling if it makes sense. The library does not produce side effects (like storing the image to disk), and I don't need to replace it with a mock in my tests.
 
-The first comment you might have here is: but what if we need to reuse it? Then there are two options: either it does exactly what it needs to in both cases and I can reuse the component without touching it... or it doesn't and the other place needs its own implementation. It is easier to maintain a few similar looking pieces of code than it is to have one class that is shared over my codebase that caters to similar functionality but not quite. The one class will become hard to understand, complex and bloated with all the different pieces of logic it needs in each different case. When one place needs a change, you need to take all the other usecases into consideration before you can make the change. That is why I like to keep this kind of logic spread out throughout the codebase.
+This approach lends itself to reuse very easily: inject or instantiate the `Watermark` class and use it. It's even easy to extend to add a timestamp in another feature... Wait, hold that thought. I get why this seems like a good idea, both are adding something to an image. Unfortunately, this is a case where the functionality looks alike, but is quite different in practice. Adding a watermwark is something else than adding a timestamp. They are only accidentally alike. The moment I'd start implementing this, I'd notice they are different. I would take the lessons learned from the `Watermark` implementation and just create another class `Timestamp`. This is easier to maintain, evolve, replace or compose.
 
-Mind you, if exactly the same code pops up all over the place, then that is a good moment to reflect and refactor that into a shared class. The difference is that you see duplication and get rid of it, instead of anticipating what will be reused and creating complexity.
+It's only when I notice that similar code appears in the codebase that I'll reflect and refactor into a shared class or component. The difference is that I'll react to what is actually there instead of prematurely optimising. This way it's more challenging to create accidental complexity.
 
 ### Controller
 
-Great, now we have code that can load and save the data and there is code to take decisions and make computations. Unfortunately, both cannot know of eachother. That is where the controller comes into play. The controller will pass information from one to another and make sure that the correct data is passed to the correct funtionality.
-
-The controller will instruct the infrastructure code to fetch data from the database, pass it on to the logic code and then tell the database class to persist the changes and tell the message bus to send the messages that the logic code produced.
-
-This code is fairly straightforward and can even be automated away.
-
-## The project
-
-Before I show the code and how it's structured, let me quickly explain the premise of the app. This app will help dog walkers log walks with their dogs and automatically identify who they encountered on their way. Given the other party also entered their route. So I will build a system to keep track of dogs and their owners, the walks they have taken and who they encountered on their walk.
-
-Seeing as this is a demo app, I will use a very simple coordinate system instead of GPS data. I will also assume that all walks happen at the same time. This will simplify the code a bit and keep the focus on the techniques I want to demonstrate instead of going into unnecessary details of the _"business domain"_.
-
-I'm also skipping some unnecessary in-depth explanations. I'm going to assume that you are familiar with setting up Entity Framework or how to correctly use `HttpClient` because you are reading an article about advanced architecture. There are numerous articles that explain those topics in more depth. This article is to highlight the A-Frame Architecture.
+This is a good point in the development process to think about the last step. I can load the necessary data and act upon it; all that is needed is to connect the dots. This is where the controller comes into play. It will pass information from one to the other and make sure the two never meet. The controller will determine what data to load and pass it on to the logic component. Finally, it will instruct other infrastructure components based on the output of the logic. This code is fairly straightforward and can even be automated away.
 
 ## A simple scenario
 
-Let's take a look at how the code is structured. To start out, I will use a minimal API to demonstrate the basic idea of A-Frame Architecture. In examples to come, I'm going to use a framework to connect infrastructure to logic.
+Now the expected structure is clear, let's take a look at the code. I will start with a minimal API implementation to demonstrate that no frameworks are needed to implement this architecture. I did find that Vertical Slice architecture pairs well with A-Frame architecture. For that purpose, I'll use a framework that makes it easy to connect infrastructure and logic by generating the controller.
 
-The first endpoint that I will create, will create a dog in the database. Let's first take a look at the infrastructure code, this will feel most recognizable.
+The initial endpoint will create a dog in the database. I'll start with the infrastructure code as this will be the most recognisable.
 
 ```csharp
 record CreateDog(string Name, DateOnly Birthday);
@@ -112,11 +112,9 @@ app.MapPost(
 .WithName("CreateDog");
 ```
 
-The minimal API takes in a structure that was in the body of the request and a connection to the database. It looks the possible already existing dog up in the database. It then lets the `Dog` class take care of creation workflow. I'll get to that in a second. Have some patience, good things come to those who wait.
+The endpoint retrieves a possibly existing dog and passes it, together with the create command, to the `CreateDog` handle function. The result of the dog creation is then handled. When the dog needs to be created, it is saved to the database and a _201 Created_ response is sent back. When the dog already exists, I redirect the client to that resource. In case something goes wrong, I'll return a _500 Internal Server Error_.
 
-After the dog creation logic has run, I have to process that result. In the case that the dog is new, it needs to be saved to the database and return the created record. When the dog already exists, I redirect to the place where the consumer can find more information about the dog. Just in case, I return an error should something go wrong.
-
-Now that we have the infrastructure in place, let's look at the logic to create a dog in our system.
+Now that I have the infrastructure in place, let's look at the logic to create a dog in our system.
 
 ```csharp
 abstract record DogCreation;
@@ -144,11 +142,11 @@ public class Dog
 }
 ```
 
-Logic is in a lot of cases straightforward when infrastructure concerns are remove. I did create a simple hierarchy to return all the possible outcomes back to the infrastructure layer. I like this little pattern, it reminds me of [discriminated unions/sum type](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions). They come from functional programming and [C# might get them too](https://github.com/dotnet/csharplang/blob/main/proposals/TypeUnions.md). This is the closest I can get to that for the moment, I like this because it describes all the possible outcomes that can come out of the `CreateDog` function. This is also what the infrastructure code uses to determine what needs to be done.
+If a dog already exists, I return the identifier of that dog. Otherwise, I'll create a new dog. When infrastructure concerns are removed, the remaining logic is straightforward. The return structure is easy to understand and describes all possible outcomes. I like this little pattern, it reminds me of [discriminated unions/sum type](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions). I hope [C# gets them soon](https://github.com/dotnet/csharplang/blob/main/proposals/TypeUnions.md) as I think functional programming paradigms are quite elegant.
 
-What I also could have done, was to create a single property `Dog` on the base class and passed the created or existing dog reference back to the infrastructure. I like to return only what is needed back to my infrastructure. The logic code does not need to know whether a created or redirect needs to be sent over the wire. I, as the maintainer of the system, do not want to return too much so I can easily process the result. The last reason I do this, is to highlight that each case has its own needs and should not contain any more than needed. The whole purpose of this architecture is to simplify code.
+It's possible to move the `Dog` property to the base record. Then I'd have all information to feed back into my infrastructure. I like to return just what is necessary, thus keeping in line with the [principle of least privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege). The infrastructure only needs the dogs id to create the redirect. It also means that I don't return the response in the logic code as that would mean the logic would need to know about the infrastructure. These return objects also better explain what the logic decided. The whole purpose of this architecture is to simplify code.
 
-Automated tests can very easily verify whether the logic takes the right decisions. There is no infrastructure code that gets in the way. The "messy" infrastructure code with all of its side effects can be better tested with integration tests. That way, all infrastructure code gets verified in a few scenarios, while all the special logic cases get their own (much faster) unit tests.
+Setting up automated tests for logic components is quite easy as there is no infrastructure that gets in the way. Infrastructure benefits more from integration tests that check all the messy side effects, while all the logic output can be verified with (much faster) unit tests.
 
 For a simple situation like this, this can feel overkill. The point here is to showcase how separation between infrastructure and logic can make code a lot more understandable. Even without knowing what `CreateDog` function did, the returned values describe perfectly what you can expect and how the infrastructure should respond to it.
 
