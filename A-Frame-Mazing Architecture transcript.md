@@ -439,6 +439,4 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncInitializer
 [A-Frame Architecture with Wolverine](https://jeremydmiller.com/2023/07/19/a-frame-architecture-with-wolverine/)
 [James Shore A-Frame Architecture](https://www.jamesshore.com/v2/projects/nullables/testing-without-mocks#a-frame-arch)
 [Wolverine Docs](https://wolverine.netlify.app/tutorials/)
-[Alba integration test framework](https://jasperfx.github.io/alba/)
 [Integration testing in dotnet](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
-[TUnit](https://tunit.dev)
