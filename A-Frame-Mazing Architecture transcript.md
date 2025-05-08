@@ -3,7 +3,7 @@
 ## Table of Content
 
 1. The project
-2. What is A-Frame Architecture?
+2. What is A-Frame architecture?
     1. Infrastructure
     2. Logic
     3. Controller
@@ -27,9 +27,9 @@ Seeing as this is a demo app, I will use a basic coordinate system instead of GP
 
 For brevity, I'll assume you are familiar with popular concepts such as setting up entity framework or how to correctly use `HttpClient`. There are numerous articles explaining those topics in more depth. I want to keep A-Frame architeture front and centre.
 
-## What is A-Frame Architecture?
+## What is A-Frame architecture?
 
-A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic. Between the two is a controller who orchestrates the flow of data. Everything in your code should respect that separation.
+A-frame architecture is pretty simple: it separates interfacing with infrastructure from taking decisions using logic. Between the two is a controller who orchestrates the flow of data. Everything in your code should respect that separation. As this architecture talks more about how to structure code inside a component, it is best used in combination with an architecture that describes how to structure components. I find that [Vertical Slice](https://www.jimmybogard.com/vertical-slice-architecture/) or [Modular Monolith](https://www.youtube.com/watch?v=5OjqD-ow8GE) architectures pair well with A-Frame architecture.
 
 ![A-Frame Architecture triangle.png](A-Frame%20triangle.png "A-Frame Architecture triangle")
 
