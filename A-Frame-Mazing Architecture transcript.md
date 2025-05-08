@@ -81,6 +81,8 @@ It's only when I notice that similar code appears in the codebase that I'll refl
 
 This is a good point in the development process to think about the last step. I can load the necessary data and act upon it; all that is needed is to connect the dots. This is where the controller comes into play. It will pass information from one to the other and make sure the two never meet. The controller will determine what data to load and pass it on to the logic component. Finally, it will instruct other infrastructure components based on the output of the logic. This code is fairly straightforward and can even be automated away.
 
+In practice, this will be an endpoint declaration, a message handler, the WPF binding method, the cronjob entry point or equivalent. This is the place that will know where to get the data from and which logic component to pass it to.
+
 ## A simple scenario
 
 
