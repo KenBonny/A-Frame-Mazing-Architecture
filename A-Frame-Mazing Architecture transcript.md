@@ -17,7 +17,8 @@
 7. Testing
    1. Unit tests
    2. Integration tests
-8. Sources
+8. Final thoughts
+9. Sources
 
 ## The project
 
@@ -435,6 +436,12 @@ public class WebAppFactory : WebApplicationFactory<Program>, IAsyncInitializer
     }
 }
 ```
+
+## Final thoughts
+
+Phew, that was a lot. I'm always surprised how simple solutions contain so much detail and nuance when I try to explain them. I hope I conveyed the message that A-Frame simplifies code within a module or class by separating the infrastructure components and logic components. They will interact with each other through a controller that knows how to connect one to the other. Keep logic focused on the feature and try to keep infrastructure as straightforward as possible.
+
+Good luck out there!
 
 ## Sources
 
