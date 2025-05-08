@@ -10,8 +10,8 @@ Warning: May contain dad jokes about dependency injection and mild rants about o
 
 # A-Frame-Mazing Architecture
 
-A lot of architectures, patterns and code organization promote splitting infrastructure code from (business) logic. Yet when I look at examples, both happen in the same function. They are separated by an interface, but they are interspersed. Now that I've sniffed out the problem, A-Frame Architecture helps me to separate them properly. In doing so, it simplifies a lot of scenarios and makes easily testable code trivially testable code.
+A lot of architectures, patterns and code organisation promote splitting infrastructure code from (business) logic. Yet when I look at examples, both happen in the same function. They are separated by an interface, but they are interspersed. A-Frame Architecture helps me to separate them properly. In doing so, it simplifies a lot of scenarios and transforms easily testable code into trivially testable code.
 
-So let's take a stroll through my dog walking app and get lost in all the good smells that emerge. I'll reward you with tasty treats... I mean patterns that help you fall into the pit of success. Possibly dug by my dog.
+Let's take a stroll through my dog walking app and get lost in all the good smells that emerge. I'll reward you with tasty treats... I mean patterns that help you fall into the pit of success. Possibly dug by my dog.
 
 Disclaimer: no repositories were harmed in the making of this presentation.
