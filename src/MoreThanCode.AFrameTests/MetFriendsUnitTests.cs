@@ -116,7 +116,8 @@ public class MetFriendsUnitTests
                 getPictureCalled = true;
                 return [];
             },
-            DateTimeOffset.Now);
+            DateTimeOffset.Now,
+            new Watermark());
 
         await Assert.That(result).IsEqualTo(Results.Empty);
         outgoingMessages.ShouldHaveNoMessages();
@@ -136,7 +137,8 @@ public class MetFriendsUnitTests
                 getPictureCalled = true;
                 return [];
             },
-            DateTimeOffset.Now);
+            DateTimeOffset.Now,
+            new Watermark());
 
         await Assert.That(result).IsEquivalentTo(Results.Ok(new FriendsResponse(["Toby"], [])));
         var friends = outgoingMessages.ShouldHaveMessageOfType<MetFriends>().Friends;
