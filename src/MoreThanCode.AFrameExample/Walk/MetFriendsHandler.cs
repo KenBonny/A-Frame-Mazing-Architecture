@@ -51,7 +51,8 @@ public class MetFriendsHandler
         WalkWithDogs walk,
         List<WalkWithDogs> otherWalksAtSameTime,
         Func<byte[]> getPicture,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        Watermark watermarkService)
     {
         var outgoingMessages = new OutgoingMessages();
 
@@ -62,7 +63,9 @@ public class MetFriendsHandler
         if (friends.Length != 0)
             outgoingMessages.Add(new MetFriends(friends));
 
-        FriendsResponse response = friends.Length == 0 ? new([], []) : new(friends, getPicture());
+        FriendsResponse response = friends.Length == 0
+            ? new([], [])
+            : new(friends, watermarkService.Add(getPicture()));
 
         return (Results.Ok(response), outgoingMessages, new EntityFrameworkInsert<WalkWithDogs>(walk));
     }
