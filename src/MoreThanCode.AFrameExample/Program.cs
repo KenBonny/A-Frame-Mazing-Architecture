@@ -22,12 +22,15 @@ public class Program
             .AddJsonFile("appsettings.json", false, true)
             .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", false, true);
 
-        // Add services to the container.
-        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-        const string dogwalking = "DogWalking";
-        var connectionString = builder.Configuration.GetConnectionString(dogwalking) ??
-                               throw new NullReferenceException($"ConnectionString {dogwalking} should exists");
-        builder.Services.AddOpenApi().AddSqlServer<DogWalkingContext>(connectionString).AddWolverineHttp();
+// Add services to the container.
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+const string dogwalking = "DogWalking";
+var connectionString = builder.Configuration.GetConnectionString(dogwalking) ??
+                       throw new NullReferenceException($"ConnectionString {dogwalking} should exists");
+builder.Services.AddOpenApi()
+    .AddSqlServer<DogWalkingContext>(connectionString)
+    .AddWolverineHttp()
+    .AddScoped<Watermark>();
 
         builder.UseWolverine(options =>
         {
