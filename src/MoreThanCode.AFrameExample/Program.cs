@@ -22,7 +22,8 @@ var connectionString = builder.Configuration.GetConnectionString(dogwalking) ??
                        throw new NullReferenceException($"ConnectionString {dogwalking} should exists");
 builder.Services.AddOpenApi()
     .AddSqlServer<DogWalkingContext>(connectionString)
-    .AddWolverineHttp();
+    .AddWolverineHttp()
+    .AddScoped<Watermark>();
 
 builder.UseWolverine(options =>
 {
