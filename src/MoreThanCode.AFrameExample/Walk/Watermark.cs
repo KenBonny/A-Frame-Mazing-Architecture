@@ -13,6 +13,10 @@ public class Watermark
 
     public byte[] Add(byte[] imageBytes)
     {
+        var noImage = imageBytes.Length == 0;
+        if (noImage)
+            return imageBytes;
+
         var image = ToImage(imageBytes);
         using var graphics = Graphics.FromImage(image);
 
