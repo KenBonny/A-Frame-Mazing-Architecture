@@ -340,7 +340,7 @@ public (IResult, OutgoingMessages, EntityFrameworkInsert<WalkWithDogs>?) Handle(
 }
 ````
 
-A last remark: when you have side effects that can fail, publish a [business or infrastructure event](). The most prevalent examples are network calls. A network call can fail for a multitude of reasons. I like to leverage built-in [retry mechanisms](https://wolverine.netlify.app/guide/handlers/error-handling.html) and [error handling](https://wolverine.netlify.app/guide/handlers/error-handling.html), so I have battle tested ways of handling failures.
+A last remark: when you have side effects that can fail, publish an event or command and react to it. The most prevalent examples are network calls. A network call can fail for a multitude of reasons. When I trigger the call to the external system in an event, I can leverage built-in [retry mechanisms](https://wolverine.netlify.app/guide/handlers/error-handling.html) and [error handling](https://wolverine.netlify.app/guide/handlers/error-handling.html) mechanisms. This means I have battle tested ways of handling failures.
 
 ## Testing
 
